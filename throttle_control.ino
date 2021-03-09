@@ -15,8 +15,18 @@
 #define pwmmax 1999
 
 #define LED_PIN 6
+#define BTN_PIN 2
+
+int cal_app0min = -1;
+int cal_app0max = -1;
+int cal_app1min = -1;
+int cal_app1max = -1;
+int cal_tps0min = -1;
+int cal_tps0max = -1;
 
 #define DEBUG
+
+bool calibration = false;
 
 void setup() {
   timerInitialisation();
@@ -28,18 +38,73 @@ void setup() {
   pinMode(dir, OUTPUT);
 
   pinMode(LED_PIN, OUTPUT);
+  pinMode(BTN_PIN, INPUT);
+
+  if(digitalRead(BTN_PIN)) {
+    calibration = true;
+  }
 
   #ifdef DEBUG
   Serial.begin(115200);
   #endif
 }
 
-void loop() {
-  // TODO: calibrate app0 app1 and tps0 min/max values
-  // TODO: calibrate pwm output min/max?
+void calibrate() {
+  digitalWrite(LED_PIN, (millis() % 250) < 125);
+
+  int app0val = analogRead(app0);
+  int app1val = analogRead(app1);
+  int tps0val = analogRead(tps0);
+
+  if (cal_app0min == -1 || cal_app0min > app0val) {
+    cal_app0min = app0val;
+  }
+  if (cal_app0max == -1 || cal_app0max < app0val) {
+    cal_app0max = app0val;
+  }
+
+  if (cal_app1min == -1 || cal_app1min > app1val) {
+    cal_app1min = app1val;
+  }
+  if (cal_app1max == -1 || cal_app1max < app1val) {
+    cal_app1max = app1val;
+  }
   
-  // flash LED
-  digitalWrite(LED_PIN, (millis() % 1000) < 250);
+  if (cal_tps0min == -1 || cal_tps0min > tps0val) {
+    cal_tps0min = tps0val;
+  }
+  if (cal_tps0max == -1 || cal_tps0max < tps0val) {
+    cal_tps0max = tps0val;
+  }
+
+  #ifdef DEBUG
+  Serial.print("app0min:");
+  Serial.print(cal_app0min);
+  Serial.print("\tapp0max:");
+  Serial.print(cal_app0max);
+  Serial.print("\tapp1min:");
+  Serial.print(cal_app1min);
+  Serial.print("\tapp1max:");
+  Serial.print(cal_app1max);
+  Serial.print("\ttps0min:");
+  Serial.print(cal_tps0min);
+  Serial.print("\ttps0max:");
+  Serial.print(cal_tps0max);
+  Serial.println();
+  #endif
+
+  if (millis() > 5000 && digitalRead(BTN_PIN)) {
+    digitalWrite(LED_PIN, HIGH);
+    
+    // TODO: write calibration to flash
+    delay(1000);
+    
+    digitalWrite(LED_PIN, LOW);
+  }
+}
+
+void throttle() {  // flash LED
+  digitalWrite(LED_PIN, (millis() % 1000) < 125);
 
   // throttle actuator closed loop control
 
@@ -74,4 +139,12 @@ void loop() {
     digitalWrite(dir, LOW);
   }
   analogWrite(pwm, 1999); // full speed all the time
+}
+
+void loop() {
+  if (calibration) {
+    calibrate();
+  } else {
+    throttle();
+  }
 }
